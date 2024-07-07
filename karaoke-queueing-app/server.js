@@ -1,49 +1,39 @@
 import express from 'express';
-import bodyParser from 'body-parser';
-import sqlite3 from 'sqlite3';
 import cors from 'cors';
+import bodyParser from 'body-parser';
+import { v4 as uuidv4 } from 'uuid';
 
 const app = express();
-const db = new sqlite3.Database('karaoke.db');
+const PORT = process.env.PORT || 3001;
 
-app.use(bodyParser.json());
+let queue = [];
+
 app.use(cors());
+app.use(bodyParser.json());
 
-// Get all songs in the queue
 app.get('/api/queue', (req, res) => {
-  db.all('SELECT * FROM queue', [], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    res.json({ data: rows });
-  });
+  res.json({ data: queue });
 });
 
-// Add a song to the queue
 app.post('/api/queue', (req, res) => {
-  const { name, time, song } = req.body;
-  const stmt = db.prepare('INSERT INTO queue (name, time, song) VALUES (?, ?, ?)');
-  stmt.run(name, time, song, function (err) {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    res.json({ id: this.lastID });
-  });
-  stmt.finalize();
+  const { names, time, song, instrument } = req.body;
+  const newEntry = {
+    id: uuidv4(),
+    names,
+    time,
+    song,
+    instrument,
+  };
+  queue.push(newEntry);
+  res.status(201).json({ message: 'Entry added successfully', data: newEntry });
 });
 
-// Remove a song from the queue
 app.delete('/api/queue/:id', (req, res) => {
   const { id } = req.params;
-  db.run('DELETE FROM queue WHERE id = ?', id, function (err) {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    res.json({ deleted: this.changes });
-  });
+  queue = queue.filter((item) => item.id !== id);
+  res.json({ message: 'Entry deleted successfully' });
 });
 
-const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
